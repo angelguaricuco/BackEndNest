@@ -6,6 +6,7 @@ import {
   Patch,
   Param,
   Delete,
+  Query,
 } from '@nestjs/common';
 import { GamesService } from './games.service';
 import { CreateGameDto } from './dto/create-game.dto';
@@ -18,6 +19,14 @@ export class GamesController {
   @Post()
   create(@Body() createGameDto: CreateGameDto) {
     return this.gamesService.create(createGameDto);
+  }
+
+  @Get()
+  findAll(@Query('status') status?: string) {
+    if (status) {
+      return this.gamesService.findAllByStatus(status);
+    }
+    return this.gamesService.findAll();
   }
 
   @Get(':id')
@@ -37,5 +46,9 @@ export class GamesController {
   @Patch(':id/end')
   endGame(@Param('id') id: string, @Body() updateGameDto: UpdateGameDto) {
     return this.gamesService.endGame(+id, updateGameDto);
+  }
+    @Get(':id/players')
+  getPlayers(@Param('id') id: string) {
+    return this.gamesService.getPlayersByGame(+id);
   }
 }

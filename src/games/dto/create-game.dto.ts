@@ -1,4 +1,4 @@
-import { IsArray, IsEnum, IsInt, IsNotEmpty, IsObject, IsOptional, IsString, Min } from "class-validator";
+import { IsArray, IsEnum, isInt, IsInt, IsNotEmpty, IsObject, IsOptional, IsString, Min } from "class-validator";
 
 export enum GameState{
   WAITING = 'waiting',
@@ -16,9 +16,9 @@ export class CreateGameDto {
   maxPlayers: number;
 
   
-  @IsString()
+  @IsInt()
   @IsOptional()
-  playerName?: string;
+  userId?: number;
 
   @IsEnum(GameState)
   @IsOptional()

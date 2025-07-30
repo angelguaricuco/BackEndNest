@@ -8,6 +8,8 @@ import { CreateGameDto, GameState } from './dto/create-game.dto';
 import { UpdateGameDto } from './dto/update-game.dto';
 import { Game } from './entities/game.entity';
 import { InjectModel } from '@nestjs/sequelize';
+import { User } from 'src/users/entities/user.entity';
+import { UsersService } from 'src/users/users.service';
 
 @Injectable()
 export class GamesService {
@@ -16,22 +18,38 @@ export class GamesService {
   constructor(
     @InjectModel(Game)
     private gameModel: typeof Game,
+    private readonly userService: UsersService,
   ) {}
+
   async create(createGameDto: CreateGameDto) {
-    const { name, maxPlayers, playerName, state } = createGameDto;
+    const { name, maxPlayers, userId, state } = createGameDto;
 
     try {
-      const newGame = await this.gameModel.create({
+      const game = await this.gameModel.create({
         name: name,
         maxPlayers: maxPlayers,
-        players: [playerName],
-        state: state || 'waiting',
+        userId: userId,
+        state: state || GameState.WAITING,
         score: null,
       });
-      return newGame;
+
+      if (userId) {
+        const user = await this.userService.findOne(userId);
+
+        if (user) {
+          await game.$add('players', user);
+        } else {
+          throw new BadRequestException(`User with id ${userId} not found`);
+        }
+      }
+      return game;
     } catch (error) {
-      this.handleDBExeption(error);
+      this.handleDBException(error);
     }
+  }
+
+ async findAll() {
+    return await this.gameModel.findAll();
   }
 
   async findOne(id: number) {
@@ -39,6 +57,16 @@ export class GamesService {
       where: {
         id,
       },
+      include: [
+        {
+          model: User,
+          as: 'players',
+          attributes: ['id', 'fullname', 'email'],
+          through: {
+            attributes: [],
+          },
+        }
+      ]
     });
     if (!game) {
       throw new BadRequestException(`Game with id ${id} not found`);
@@ -46,38 +74,45 @@ export class GamesService {
     return game;
   }
 
-  async joinGame(id: number, updateGameDto: UpdateGameDto) {
-    const { playerName } = updateGameDto;
 
-    const game = await this.findOne(id);
 
-    if (game.dataValues.players.includes(playerName!)) {
+  async joinGame(gameId: number, updateGameDto: UpdateGameDto) {
+    const { userId } = updateGameDto;
+
+    if (!userId) {
+      throw new BadRequestException('User ID is required to join a game');
+    }
+
+    const game = await this.findOne(gameId);
+    if (game.dataValues.state !== GameState.WAITING)
+      throw new BadRequestException(`Game with id ${gameId} is not joinable`);
+
+    const user = await this.userService.findOne(userId);
+
+
+    if (!user) {
+      throw new BadRequestException(`User with id ${userId} not found`);
+    }
+
+
+    const alreadyJoined = game.dataValues.players.find((player) => player.id === userId);
+    if (alreadyJoined) {
       throw new BadRequestException(
-        `Player ${playerName} is already in the game`,
+        `User with id ${userId} has already joined the game`,
       );
     }
-
-    const newPlayers = [...game.dataValues.players, playerName!];
-
-    if (newPlayers.length > game.dataValues.maxPlayers) {
-      throw new BadRequestException(
-        `Game is full, maximum players is ${game.dataValues.maxPlayers}`,
-      );
+    if (game.dataValues.players.length >= game.dataValues.maxPlayers) {
+      throw new BadRequestException(`Game is full`);
     }
 
-    try {
-      await game.update({
-        players: newPlayers,
-      });
-      return {
-        message: `Player ${playerName} joined the game successfully`,
-      };
-    } catch (error) {
-      this.handleDBExeption(error);
-    }
+    await game.$add('players', user);
+    return {
+      message: `User ${user.dataValues.fullname} has joined game ${game.dataValues.name}`,
+    };
   }
-  async startGame(id: number){
-    const game = await this.findOne(id);
+
+  async startGame(gameId: number) {
+    const game = await this.findOne(gameId);
 
     try {
       await game.update({
@@ -86,18 +121,18 @@ export class GamesService {
       return {
         message: `Game ${game.name} started successfully`,
       };
-    } catch (error) {
-      
-    }
+    } catch (error) {}
   }
 
-  async endGame(id: number, updateGameDto: UpdateGameDto) {
+  async endGame(gameId: number, updateGameDto: UpdateGameDto) {
     const { score } = updateGameDto;
 
-    const game = await this.findOne(id);
+    const game = await this.findOne(gameId);
 
     if (game.dataValues.state !== GameState.IN_PROGRESS) {
-      throw new BadRequestException(`Game with id ${id} is not in progress`);
+      throw new BadRequestException(
+        `Game with id ${gameId} is not in progress`,
+      );
     }
 
     try {
@@ -110,11 +145,29 @@ export class GamesService {
         score: game.score,
       };
     } catch (error) {
-      this.handleDBExeption(error);
+      this.handleDBException(error);
     }
   }
 
-  private handleDBExeption(error: any) {
+
+  async findAllByStatus(status: string) {
+    return await this.gameModel.findAll({
+      where: { state: status }
+    });
+  }
+
+  async getPlayersByGame(gameId: number) {
+    const game = await this.gameModel.findOne({
+      where: { id: gameId },
+      include: ['players'], // Asegúrate que la relación esté definida como 'players'
+    });
+    if (!game) {
+      throw new BadRequestException(`Game with id ${gameId} not found`);
+    }
+    return game.players;
+  }
+
+  private handleDBException(error: any) {
     if (error.code === '23505') {
       throw new BadRequestException(error.parent.detail);
     }
