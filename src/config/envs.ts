@@ -1,40 +1,50 @@
-import 'dotenv/config';  // Load environment variables from .env file
+import 'dotenv/config';
+
 import * as joi from 'joi';
 
+interface EnvVar {
 
-interface EnvVariables {
-  PORT: number;
-  DATABASE_USERNAME: string;
-  DATABASE_PASSWORD: string;
-  DATABASE_HOST: string;
-  DATABASE_PORT: number;
-  DATABASE_NAME: string;
+    PORT: number;
+
+    DATABASE_USERNAME: string;
+
+    DATABASE_PASSWORD: string;
+
+    DATABASE_HOST: string;
+
+    DATABASE_PORT: number;
+
+    DATABASE_NAME: string;
+
+    JWT_SECRET: string;
 }
 
+const envSchema = joi
+    .object({
+        PORT: joi.number().required(),
+        DATABASE_USERNAME: joi.string().required(),
+        DATABASE_PASSWORD: joi.string().required(),
+        DATABASE_HOST: joi.string().required(),
+        DATABASE_PORT: joi.number().required(),
+        DATABASE_NAME: joi.string().required(),
+        JWT_SECRET: joi.string().required(),
+    })
+    .unknown(true);
 
-const envSchema = joi.object<EnvVariables>({
-  PORT: joi.number().required(),
-  DATABASE_USERNAME: joi.string().required(),
-  DATABASE_PASSWORD: joi.string().required(),
-  DATABASE_HOST: joi.string().required(),
-  DATABASE_PORT: joi.number().required(),
-  DATABASE_NAME: joi.string().required(),
-}).unknown(true);
-
-const { error, value} = envSchema.validate(process.env);
+const { error, value } = envSchema.validate(process.env);
 
 if (error) {
-  throw new Error(`Config validation error: ${error.message}`);
+    throw new Error(`Config validation error: ${error.message}`);
 }
 
-const EnvVariables: EnvVariables = value;
+const envVars: EnvVar = value;
 
 export const envs = {
-  PORT: EnvVariables.PORT,
-  DATABASE_USERNAME: EnvVariables.DATABASE_USERNAME,
-  DATABASE_PASSWORD: EnvVariables.DATABASE_PASSWORD,
-  DATABASE_HOST: EnvVariables.DATABASE_HOST,
-  DATABASE_PORT: EnvVariables.DATABASE_PORT,
-  DATABASE_NAME: EnvVariables.DATABASE_NAME,
+    PORT: envVars.PORT,
+    DATABASE_USERNAME: envVars.DATABASE_USERNAME,
+    DATABASE_PASSWORD: envVars.DATABASE_PASSWORD,
+    DATABASE_HOST: envVars.DATABASE_HOST,
+    DATABASE_PORT: envVars.DATABASE_PORT,
+    DATABASE_NAME: envVars.DATABASE_NAME,
+    JWT_SECRET: envVars.JWT_SECRET,
 };
-

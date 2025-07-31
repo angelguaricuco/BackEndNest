@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { GamesModule } from './games/games.module';
-import { envs } from './config/envs';
 import { SequelizeModule } from '@nestjs/sequelize';
+import { envs } from './config/envs';
 import { UsersModule } from './users/users.module';
 
 @Module({
@@ -15,18 +15,18 @@ import { UsersModule } from './users/users.module';
       password: envs.DATABASE_PASSWORD,
       database: envs.DATABASE_NAME,
       autoLoadModels: true,
+      //sync: { force: true },
       synchronize: true,
-      // sync: { force: true },
       dialectOptions: {
         ssl: {
           require: true,
-          rejectUnauthorized: false, // This is important for NeonDB
+          rejectUnauthorized: false,
         },
       },
     }),
-    UsersModule,
+    UsersModule
   ],
   controllers: [],
   providers: [],
 })
-export class AppModule {}
+export class AppModule { }
